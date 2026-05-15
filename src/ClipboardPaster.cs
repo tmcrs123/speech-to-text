@@ -3,35 +3,86 @@ using System.Windows.Forms;
 
 namespace SpeechToText;
 
-internal static class Paster
+internal static class ClipboardPaster
 {
     private const int INPUT_KEYBOARD = 1;
     private const uint KEYEVENTF_KEYUP = 0x0002;
     private const ushort VK_CONTROL = 0x11;
     private const ushort VK_V = 0x56;
+    private const int RESTORE_DELAY_MS = 100;
 
-    public static void Paste(string text, IntPtr targetHwnd)
+    public static void Paste(string text)
     {
         if (string.IsNullOrEmpty(text)) return;
 
-        if (targetHwnd != IntPtr.Zero)
-            SetForegroundWindow(targetHwnd);
+        IDataObject? saved = SaveClipboard();
 
-        Clipboard.SetText(text);
+        // UnicodeText format ensures emoji and non-ASCII glyphs survive the round trip.
+        Clipboard.SetText(text, TextDataFormat.UnicodeText);
+
         SendCtrlV();
+
+        ScheduleRestore(saved);
     }
 
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetForegroundWindow(IntPtr hWnd);
+    private static IDataObject? SaveClipboard()
+    {
+        try
+        {
+            IDataObject? current = Clipboard.GetDataObject();
+            if (current == null) return null;
+
+            var copy = new DataObject();
+            foreach (string format in current.GetFormats(autoConvert: false))
+            {
+                try
+                {
+                    object? data = current.GetData(format, autoConvert: false);
+                    if (data != null) copy.SetData(format, autoConvert: false, data);
+                }
+                catch
+                {
+                    // Some formats (e.g. live OLE handles from a closed owner) refuse to round-trip; skip them.
+                }
+            }
+            return copy;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void ScheduleRestore(IDataObject? saved)
+    {
+        if (saved == null) return;
+
+        // Give the target app time to read the clipboard from the dispatched Ctrl+V
+        // before we overwrite it with the prior contents.
+        var timer = new System.Windows.Forms.Timer { Interval = RESTORE_DELAY_MS };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            timer.Dispose();
+            try
+            {
+                Clipboard.SetDataObject(saved, copy: true);
+            }
+            catch
+            {
+                // Clipboard may be locked by another process; drop silently.
+            }
+        };
+        timer.Start();
+    }
 
     private static void SendCtrlV()
     {
         var inputs = new INPUT[4];
-        inputs[0] = KeyInput(VK_CONTROL, false);
-        inputs[1] = KeyInput(VK_V, false);
-        inputs[2] = KeyInput(VK_V, true);
-        inputs[3] = KeyInput(VK_CONTROL, true);
+        inputs[0] = KeyInput(VK_CONTROL, up: false);
+        inputs[1] = KeyInput(VK_V, up: false);
+        inputs[2] = KeyInput(VK_V, up: true);
+        inputs[3] = KeyInput(VK_CONTROL, up: true);
 
         uint sent = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
         if (sent != inputs.Length)
