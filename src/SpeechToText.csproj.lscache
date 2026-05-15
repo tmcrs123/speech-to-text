@@ -55,15 +55,26 @@ TemporaryDependencyNodeTargetIdentifier=net8.0-windows
 
 [sourceFiles]
 AudioCapture.cs
+AudioCapturerAdapter.cs
 ClipboardPaster.cs
+ClipboardPasterAdapter.cs
+DictationOrchestrator.cs
 GroqClient.cs
+IAudioCapturer.cs
+IClipboardPaster.cs
+IClock.cs
+IHotkeyListener.cs
+ITranscriptionBackend.cs
+IWindowTargeter.cs
 KeyboardHook.cs
 obj/Debug/net8.0-windows/
  .NETCoreApp,Version=v8.0.AssemblyAttributes.cs
  SpeechToText.AssemblyInfo.cs
  SpeechToText.GlobalUsings.g.cs
 Program.cs
+SystemClock.cs
 WindowTargeter.cs
+WindowTargeterAdapter.cs
 
 [metadataReferences]
 <NUGET>/microsoft.netcore.app.ref/8.0.27/ref/net8.0/
