@@ -146,7 +146,7 @@ internal static class Program
             _capture = null;
         }
 
-        IntPtr targetHwnd = GetForegroundWindow();
+        IntPtr targetHwnd = WindowTargeter.CaptureHwndNow();
         _state = State.Transcribing;
 
         _ = Task.Run(async () =>
@@ -166,7 +166,10 @@ internal static class Program
                 try
                 {
                     if (!string.IsNullOrWhiteSpace(text))
-                        Paster.Paste(text!, targetHwnd);
+                    {
+                        WindowTargeter.RestoreFocus(targetHwnd);
+                        ClipboardPaster.Paste(text!);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -179,9 +182,6 @@ internal static class Program
             }, null);
         });
     }
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetForegroundWindow();
 
     private delegate bool ConsoleCtrlDelegate(int ctrlType);
 
