@@ -2,4 +2,7 @@ bin/
 obj/
 *.user
 .vs/
-*.lscache
+SpeechToText.csproj.lscache
+tests/SpeechToText.Tests.csproj.lscache
+src/SpeechToText.csproj.lscache
+src/SpeechToText.csproj.lscache

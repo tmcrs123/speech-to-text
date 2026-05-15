@@ -21,16 +21,8 @@ The phase of a **Dictation** after **Recording** ends, during which captured aud
 _Avoid_: processing, inferring
 
 **Pasting**:
-The phase of a **Dictation** after transcription returns and the **Post-Processor** has run, during which the resulting text is written to the clipboard, Ctrl+V is dispatched to the target window, and the prior clipboard contents are restored.
+The phase of a **Dictation** after transcription returns, during which the transcribed text is written to the clipboard verbatim, Ctrl+V is dispatched to the target window, and the prior clipboard contents are restored.
 _Avoid_: inserting, typing
-
-**Post-Processor**:
-A synchronous component that runs between **Transcribing** and **Pasting**. Takes raw text from the **Transcription Backend** and (a) substitutes each **Spoken Command** with its canonical output, (b) capitalizes the first letter after inserted sentence-ending punctuation (`.`, `?`, `!`) and after inserted line breaks (`\n`, `\n\n`).
-_Avoid_: substitution, formatter
-
-**Spoken Command**:
-A keyword or phrase from a curated list that the **Post-Processor** substitutes for a punctuation mark, bracket, or line break. v1 set: `comma`, `full stop`, `question mark`, `exclamation mark` (alias `exclamation point`), `colon`, `semicolon`, `open quote`, `close quote`, `open paren`, `close paren`, `new line`, `new paragraph` (alias `paragraph`). Line breaks (`new line`, `new paragraph`) are the only formatting the **Post-Processor** will ever produce — Whisper's own line breaks, if any, are stripped.
-_Avoid_: voice command, control word
 
 **Transcription Backend**:
 A pluggable component that converts captured audio into text. Concrete implementations: **Cloud Backend** (Groq) and **Local Backend** (Whisper variant, TBD).
@@ -48,7 +40,7 @@ _Avoid_: offline, on-device
 
 - Each machine selects exactly one **Transcription Backend** via a per-machine config file.
 - One Idle → **Recording** → **Transcribing** → **Pasting** → Idle traversal is exactly one **Dictation**.
-- A **Dictation** is handed to the configured **Transcription Backend** when **Recording** ends. The **Transcription Backend** is invoked with an `initial_prompt` that lists every **Spoken Command** as literal words so Whisper does not auto-substitute them. The returned text passes through the **Post-Processor** before being pasted into the window that was focused at the moment **Recording** ended.
+- A **Dictation** is handed to the configured **Transcription Backend** when **Recording** ends. The text returned by the **Transcription Backend** is pasted verbatim — including whatever punctuation and casing the backend produces — into the window that was focused at the moment **Recording** ended. (See ADR-0004 for why the original Post-Processor / Spoken Command layer was removed.)
 - A **Hotkey** tap during **Transcribing** or **Pasting** starts a new **Dictation** that is queued behind the in-flight one — nothing in flight is cancelled.
 - **Esc** during **Recording** aborts the current **Dictation**; no audio is sent to the **Transcription Backend** and no text is pasted.
 - A **Dictation** that produces empty or whitespace-only text, or fails in **Transcribing**, is silently dropped (no paste, no clipboard touch); the tray icon flashes the error state briefly.

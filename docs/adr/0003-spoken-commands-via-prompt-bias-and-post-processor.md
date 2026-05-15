@@ -1,5 +1,9 @@
 # Spoken Commands via Whisper prompt-bias + Post-Processor
 
+**Status: Superseded by [ADR-0004](0004-drop-post-processor-and-spoken-commands.md) (2026-05-15).**
+
+The decision below was never validated end-to-end. In practice the `initial_prompt` biasing was inconsistent and the `\n`-stripping rule swallowed line breaks the user wanted. The Post-Processor and the Spoken Command vocabulary have been removed; Groq's transcription output is now pasted verbatim. The original record is retained below for history.
+
 ## Context
 
 The user wants Whisper's automatic punctuation as the default, *plus* the ability to say keywords ("comma", "full stop", "question mark", etc.) to force punctuation in places Whisper wouldn't infer it. Critically, line breaks (`\n`, `\n\n`) must **never** be auto-inferred — they may only appear when the user explicitly says "new line" or "new paragraph".
