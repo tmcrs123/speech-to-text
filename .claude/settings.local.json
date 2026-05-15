@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh label *)",
+      "Bash(gh issue *)",
+      "Bash(dotnet --version)",
+      "Bash(gh auth *)",
+      "Bash(dotnet build *)"
+    ]
+  }
+}
