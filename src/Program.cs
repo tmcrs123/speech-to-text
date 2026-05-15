@@ -17,8 +17,8 @@ internal static class Program
     [STAThread]
     private static int Main()
     {
-        string? apiKey = Environment.GetEnvironmentVariable("GROQ_API_KEY");
-        // string? apiKey = "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";
+        // string? apiKey = Environment.GetEnvironmentVariable("GROQ_API_KEY");
+        string? apiKey = "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";
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             MessageBox.Show(
