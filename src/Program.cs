@@ -11,6 +11,7 @@ internal static class Program
     private static AudioCapture? _capture;
     private static GroqClient _groq = null!;
     private static SynchronizationContext _ui = null!;
+    private static ConsoleCtrlDelegate? _ctrlHandler;
 
     [STAThread]
     private static int Main()
@@ -37,8 +38,22 @@ internal static class Program
         hook.HotkeyPressed += OnHotkey;
         hook.Install();
 
+        InstallCtrlCHandler();
+
         Application.Run();
         return 0;
+    }
+
+    private static void InstallCtrlCHandler()
+    {
+        // Debug aid: when launched from a terminal (`dotnet run`), let Ctrl+C exit the
+        // WinForms message loop. No-op when no console is attached.
+        _ctrlHandler = _ =>
+        {
+            _ui.Post(_ => Application.Exit(), null);
+            return true;
+        };
+        SetConsoleCtrlHandler(_ctrlHandler, true);
     }
 
     private static void OnHotkey()
@@ -133,4 +148,10 @@ internal static class Program
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
+
+    private delegate bool ConsoleCtrlDelegate(int ctrlType);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetConsoleCtrlHandler(ConsoleCtrlDelegate handler, [MarshalAs(UnmanagedType.Bool)] bool add);
 }
