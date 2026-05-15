@@ -8,17 +8,20 @@ internal sealed class KeyboardHook : IDisposable
     private const int WH_KEYBOARD_LL = 13;
     private const int WM_KEYDOWN = 0x0100;
     private const int WM_SYSKEYDOWN = 0x0104;
-
     private const int VK_LCONTROL = 0xA2;
     private const int VK_RCONTROL = 0xA3;
     private const int VK_LSHIFT = 0xA0;
     private const int VK_RSHIFT = 0xA1;
     private const int VK_SPACE = 0x20;
+    private const int VK_ESCAPE = 0x1B;
 
     private readonly LowLevelKeyboardProc _proc;
     private IntPtr _hookId = IntPtr.Zero;
 
     public event Action? HotkeyPressed;
+
+    // Returns true to consume Esc, false to pass it through to the focused window.
+    public Func<bool>? EscPressed;
 
     public KeyboardHook()
     {
@@ -47,6 +50,14 @@ internal sealed class KeyboardHook : IDisposable
                     try { HotkeyPressed?.Invoke(); }
                     catch (Exception ex) { Console.Error.WriteLine($"hotkey handler threw: {ex}"); }
                     return (IntPtr)1;
+                }
+
+                if (vk == VK_ESCAPE)
+                {
+                    bool consumed = false;
+                    try { consumed = EscPressed?.Invoke() ?? false; }
+                    catch (Exception ex) { Console.Error.WriteLine($"esc handler threw: {ex}"); }
+                    if (consumed) return (IntPtr)1;
                 }
             }
         }

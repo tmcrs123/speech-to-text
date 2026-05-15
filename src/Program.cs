@@ -9,6 +9,7 @@ internal static class Program
 
     private static State _state = State.Idle;
     private static AudioCapture? _capture;
+    private static CancellationTokenSource? _recordingCts;
     private static GroqClient _groq = null!;
     private static SynchronizationContext _ui = null!;
     private static ConsoleCtrlDelegate? _ctrlHandler;
@@ -36,6 +37,7 @@ internal static class Program
 
         using var hook = new KeyboardHook();
         hook.HotkeyPressed += OnHotkey;
+        hook.EscPressed = OnEsc;
         hook.Install();
 
         InstallCtrlCHandler();
@@ -72,6 +74,28 @@ internal static class Program
         }
     }
 
+    private static bool OnEsc()
+    {
+        if (_state != State.Recording) return false;
+        AbortRecording();
+        return true;
+    }
+
+    private static void AbortRecording()
+    {
+        CancelRecordingTimer();
+        _capture?.Dispose();
+        _capture = null;
+        _state = State.Idle;
+    }
+
+    private static void CancelRecordingTimer()
+    {
+        _recordingCts?.Cancel();
+        _recordingCts?.Dispose();
+        _recordingCts = null;
+    }
+
     private static void StartRecording()
     {
         try
@@ -79,10 +103,19 @@ internal static class Program
             _capture = new AudioCapture();
             _capture.Start();
             _state = State.Recording;
+
+            _recordingCts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+            _recordingCts.Token.Register(() =>
+                _ui.Post(_ =>
+                {
+                    if (_state == State.Recording)
+                        StopAndTranscribe();
+                }, null));
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"start failed: {ex}");
+            CancelRecordingTimer();
             _capture?.Dispose();
             _capture = null;
             _state = State.Idle;
@@ -91,6 +124,7 @@ internal static class Program
 
     private static void StopAndTranscribe()
     {
+        CancelRecordingTimer();
         if (_capture == null) { _state = State.Idle; return; }
 
         byte[] wav;
