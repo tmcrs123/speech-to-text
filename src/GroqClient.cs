@@ -2,7 +2,7 @@ using System.Net.Http.Headers;
 
 namespace SpeechToText;
 
-internal sealed class GroqClient
+internal sealed class GroqClient : ITranscriptionBackend
 {
     private const string Endpoint = "https://api.groq.com/openai/v1/audio/transcriptions";
     private const string Model = "whisper-large-v3-turbo";

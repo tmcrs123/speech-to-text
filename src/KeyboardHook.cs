@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace SpeechToText;
 
-internal sealed class KeyboardHook : IDisposable
+internal sealed class KeyboardHook : IDisposable, IHotkeyListener
 {
     private const int WH_KEYBOARD_LL = 13;
     private const int WM_KEYDOWN = 0x0100;
@@ -21,7 +21,8 @@ internal sealed class KeyboardHook : IDisposable
     public event Action? HotkeyPressed;
 
     // Returns true to consume Esc, false to pass it through to the focused window.
-    public Func<bool>? EscPressed;
+    public Func<bool>? EscPressed { get; set; }
+
 
     public KeyboardHook()
     {
