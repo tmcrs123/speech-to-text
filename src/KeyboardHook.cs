@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 
 namespace SpeechToText;
 
@@ -12,21 +13,39 @@ internal sealed class KeyboardHook : IDisposable, IHotkeyListener
     private const int VK_RCONTROL = 0xA3;
     private const int VK_LSHIFT = 0xA0;
     private const int VK_RSHIFT = 0xA1;
-    private const int VK_SPACE = 0x20;
+    private const int VK_LMENU = 0xA4;
+    private const int VK_RMENU = 0xA5;
+    private const int VK_LWIN = 0x5B;
+    private const int VK_RWIN = 0x5C;
     private const int VK_ESCAPE = 0x1B;
 
     private readonly LowLevelKeyboardProc _proc;
     private IntPtr _hookId = IntPtr.Zero;
+
+    private readonly object _chordLock = new();
+    private ChordDescriptor _chord;
 
     public event Action? HotkeyPressed;
 
     // Returns true to consume Esc, false to pass it through to the focused window.
     public Func<bool>? EscPressed { get; set; }
 
-
-    public KeyboardHook()
+    public KeyboardHook(ChordDescriptor initialChord)
     {
+        if (!initialChord.IsValid)
+            throw new ArgumentException("Initial chord must be valid (modifier + non-modifier key).", nameof(initialChord));
+        _chord = initialChord;
         _proc = HookCallback;
+    }
+
+    public ChordDescriptor Chord
+    {
+        get { lock (_chordLock) return _chord; }
+        set
+        {
+            if (!value.IsValid) throw new ArgumentException("Chord must be valid.", nameof(value));
+            lock (_chordLock) _chord = value;
+        }
     }
 
     public void Install()
@@ -46,7 +65,10 @@ internal sealed class KeyboardHook : IDisposable, IHotkeyListener
             if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN)
             {
                 int vk = Marshal.ReadInt32(lParam);
-                if (vk == VK_SPACE && IsDown(VK_LCONTROL, VK_RCONTROL) && IsDown(VK_LSHIFT, VK_RSHIFT))
+                ChordDescriptor chord;
+                lock (_chordLock) chord = _chord;
+
+                if (vk == (int)chord.Key && ModifiersMatch(chord.Modifiers))
                 {
                     try { HotkeyPressed?.Invoke(); }
                     catch (Exception ex) { Console.Error.WriteLine($"hotkey handler threw: {ex}"); }
@@ -63,6 +85,18 @@ internal sealed class KeyboardHook : IDisposable, IHotkeyListener
             }
         }
         return CallNextHookEx(_hookId, nCode, wParam, lParam);
+    }
+
+    private static bool ModifiersMatch(ChordModifiers required)
+    {
+        bool ctrl = IsDown(VK_LCONTROL, VK_RCONTROL);
+        bool shift = IsDown(VK_LSHIFT, VK_RSHIFT);
+        bool alt = IsDown(VK_LMENU, VK_RMENU);
+        bool win = IsDown(VK_LWIN, VK_RWIN);
+        return ctrl == required.HasFlag(ChordModifiers.Ctrl)
+            && shift == required.HasFlag(ChordModifiers.Shift)
+            && alt == required.HasFlag(ChordModifiers.Alt)
+            && win == required.HasFlag(ChordModifiers.Win);
     }
 
     private static bool IsDown(int vk1, int vk2) =>

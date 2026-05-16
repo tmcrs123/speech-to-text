@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Net.Http.Headers;
 
 namespace SpeechToText;
@@ -8,11 +9,13 @@ internal sealed class GroqClient : ITranscriptionBackend
     private const string Model = "whisper-large-v3-turbo";
 
     private readonly HttpClient _http;
-    private readonly string _apiKey;
+    private readonly Func<string?> _apiKeyProvider;
 
-    public GroqClient(string apiKey)
+    public GroqClient(string apiKey) : this(() => apiKey) { }
+
+    public GroqClient(Func<string?> apiKeyProvider)
     {
-        _apiKey = apiKey;
+        _apiKeyProvider = apiKeyProvider;
         _http = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
     }
 
@@ -26,8 +29,9 @@ internal sealed class GroqClient : ITranscriptionBackend
         form.Add(new StringContent(Model), "model");
         form.Add(new StringContent("text"), "response_format");
 
+        var apiKey = _apiKeyProvider() ?? "";
         using var req = new HttpRequestMessage(HttpMethod.Post, Endpoint) { Content = form };
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
         using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
         string body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
