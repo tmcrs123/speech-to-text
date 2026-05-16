@@ -30,6 +30,7 @@ internal sealed class TrayIcon : IDisposable
     private bool _disposed;
 
     public event Action? QuitRequested;
+    public event Action? SettingsRequested;
 
     public TrayIcon(SynchronizationContext ui, ISoundPlayer sounds)
     {
@@ -43,7 +44,8 @@ internal sealed class TrayIcon : IDisposable
         _errorIcon = IconFactory.MakeFlashIcon(Color.FromArgb(255, 30, 30));
 
         var menu = new ContextMenuStrip();
-        var settingsItem = new ToolStripMenuItem("Settings…") { Enabled = false };
+        var settingsItem = new ToolStripMenuItem("Settings…");
+        settingsItem.Click += (_, _) => SettingsRequested?.Invoke();
         _muteItem = new ToolStripMenuItem("Mute sounds") { CheckOnClick = true, Checked = sounds.Muted };
         _muteItem.CheckedChanged += (_, _) => _sounds.Muted = _muteItem.Checked;
         var quitItem = new ToolStripMenuItem("Quit");
@@ -52,6 +54,7 @@ internal sealed class TrayIcon : IDisposable
         menu.Items.Add(_muteItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(quitItem);
+        menu.Opening += (_, _) => _muteItem.Checked = _sounds.Muted;
 
         _notifyIcon = new NotifyIcon
         {

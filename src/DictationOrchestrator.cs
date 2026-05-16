@@ -16,7 +16,7 @@ internal sealed class DictationOrchestrator : IDisposable
     private readonly IWindowTargeter _targeter;
     private readonly IClipboardPaster _paster;
     private readonly IClock _clock;
-    private readonly TimeSpan _maxDuration;
+    private readonly Func<TimeSpan> _maxDurationProvider;
 
     private readonly object _lock = new();
     private readonly LinkedList<Dictation> _queue = new();
@@ -42,6 +42,19 @@ internal sealed class DictationOrchestrator : IDisposable
         IClipboardPaster paster,
         IClock clock,
         TimeSpan? maxDuration = null)
+        : this(hotkey, audio, backend, targeter, paster, clock,
+               () => maxDuration ?? TimeSpan.FromSeconds(120))
+    {
+    }
+
+    public DictationOrchestrator(
+        IHotkeyListener hotkey,
+        IAudioCapturer audio,
+        ITranscriptionBackend backend,
+        IWindowTargeter targeter,
+        IClipboardPaster paster,
+        IClock clock,
+        Func<TimeSpan> maxDurationProvider)
     {
         _hotkey = hotkey;
         _audio = audio;
@@ -49,7 +62,7 @@ internal sealed class DictationOrchestrator : IDisposable
         _targeter = targeter;
         _paster = paster;
         _clock = clock;
-        _maxDuration = maxDuration ?? TimeSpan.FromSeconds(120);
+        _maxDurationProvider = maxDurationProvider;
 
         _hotkey.HotkeyPressed += OnHotkeyTapped;
         _hotkey.EscPressed = OnEscPressed;
@@ -147,7 +160,7 @@ internal sealed class DictationOrchestrator : IDisposable
         _audio.Start();
         var d = new Dictation { Phase = Phase.Recording };
         _queue.AddLast(d);
-        _maxDurationTimer = _clock.Schedule(_maxDuration, OnMaxDurationElapsed);
+        _maxDurationTimer = _clock.Schedule(_maxDurationProvider(), OnMaxDurationElapsed);
     }
 
     private void OnMaxDurationElapsed()

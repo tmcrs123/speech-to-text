@@ -1,3 +1,4 @@
+using System.IO;
 using NAudio.Wave;
 
 namespace SpeechToText;
@@ -11,7 +12,7 @@ internal sealed class AudioCapture : IDisposable
     private WaveInEvent? _waveIn;
     private MemoryStream? _pcm;
 
-    public void Start()
+    public void Start(int deviceNumber = -1)
     {
         if (_waveIn != null) throw new InvalidOperationException("already recording");
 
@@ -20,7 +21,7 @@ internal sealed class AudioCapture : IDisposable
         {
             WaveFormat = new WaveFormat(SampleRate, BitsPerSample, Channels),
             BufferMilliseconds = 50,
-            DeviceNumber = 0,
+            DeviceNumber = deviceNumber,
         };
         _waveIn.DataAvailable += (_, e) => _pcm!.Write(e.Buffer, 0, e.BytesRecorded);
         _waveIn.StartRecording();
