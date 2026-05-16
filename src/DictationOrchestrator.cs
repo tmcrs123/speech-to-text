@@ -27,6 +27,13 @@ internal sealed class DictationOrchestrator : IDisposable
     // returned empty/whitespace-only text. Tray (slice #6) consumes this to flash red.
     public event Action? ErrorFlashRequested;
 
+    // Raised whenever the externally-visible state (CurrentState) transitions.
+    // Always fires outside the internal lock. Tray (slice #6) consumes this to
+    // swap its icon image per phase.
+    public event Action<DictationState>? StateChanged;
+
+    private DictationState _lastEmittedState = DictationState.Idle;
+
     public DictationOrchestrator(
         IHotkeyListener hotkey,
         IAudioCapturer audio,
@@ -50,20 +57,19 @@ internal sealed class DictationOrchestrator : IDisposable
 
     public DictationState CurrentState
     {
-        get
+        get { lock (_lock) return ComputeStateUnderLock(); }
+    }
+
+    private DictationState ComputeStateUnderLock()
+    {
+        if (_queue.Count == 0) return DictationState.Idle;
+        return _queue.First!.Value.Phase switch
         {
-            lock (_lock)
-            {
-                if (_queue.Count == 0) return DictationState.Idle;
-                return _queue.First!.Value.Phase switch
-                {
-                    Phase.Recording => DictationState.Recording,
-                    Phase.AwaitingTranscription or Phase.Transcribing => DictationState.Transcribing,
-                    Phase.AwaitingPaste or Phase.Pasting => DictationState.Pasting,
-                    _ => DictationState.Idle,
-                };
-            }
-        }
+            Phase.Recording => DictationState.Recording,
+            Phase.AwaitingTranscription or Phase.Transcribing => DictationState.Transcribing,
+            Phase.AwaitingPaste or Phase.Pasting => DictationState.Pasting,
+            _ => DictationState.Idle,
+        };
     }
 
     public void Dispose()
@@ -81,6 +87,7 @@ internal sealed class DictationOrchestrator : IDisposable
 
     private void OnHotkeyTapped()
     {
+        DictationState? emit = null;
         lock (_lock)
         {
             if (_disposed) return;
@@ -91,18 +98,23 @@ internal sealed class DictationOrchestrator : IDisposable
             if (recording != null)
             {
                 StopRecording(recording);
-                return;
             }
-
-            // No active recording — start a new Dictation. The front may still be in
-            // Transcribing/Pasting; the new one runs Recording in parallel and queues
-            // behind it.
-            StartNewRecording();
+            else
+            {
+                // No active recording — start a new Dictation. The front may still be
+                // in Transcribing/Pasting; the new one runs Recording in parallel and
+                // queues behind it.
+                StartNewRecording();
+            }
+            emit = CaptureEmitUnderLock();
         }
+        if (emit.HasValue) StateChanged?.Invoke(emit.Value);
     }
 
     private bool OnEscPressed()
     {
+        DictationState? emit = null;
+        bool consumed;
         lock (_lock)
         {
             if (_disposed) return false;
@@ -115,8 +127,19 @@ internal sealed class DictationOrchestrator : IDisposable
             if (front.Phase != Phase.Recording) return false;
 
             AbortRecording(front);
-            return true;
+            consumed = true;
+            emit = CaptureEmitUnderLock();
         }
+        if (emit.HasValue) StateChanged?.Invoke(emit.Value);
+        return consumed;
+    }
+
+    private DictationState? CaptureEmitUnderLock()
+    {
+        var next = ComputeStateUnderLock();
+        if (next == _lastEmittedState) return null;
+        _lastEmittedState = next;
+        return next;
     }
 
     private void StartNewRecording()
@@ -129,13 +152,16 @@ internal sealed class DictationOrchestrator : IDisposable
 
     private void OnMaxDurationElapsed()
     {
+        DictationState? emit = null;
         lock (_lock)
         {
             if (_disposed) return;
             var recording = FindByPhase(Phase.Recording);
             if (recording == null) return;
             StopRecording(recording);
+            emit = CaptureEmitUnderLock();
         }
+        if (emit.HasValue) StateChanged?.Invoke(emit.Value);
     }
 
     private void StopRecording(Dictation d)
@@ -193,6 +219,7 @@ internal sealed class DictationOrchestrator : IDisposable
     private void OnTranscriptionComplete(Dictation d, string? text, bool failed)
     {
         bool fireFlash = false;
+        DictationState? emit = null;
         lock (_lock)
         {
             if (_disposed) return;
@@ -215,7 +242,9 @@ internal sealed class DictationOrchestrator : IDisposable
                     d.Phase = Phase.AwaitingPaste;
                 }
             }
+            emit = CaptureEmitUnderLock();
         }
+        if (emit.HasValue) StateChanged?.Invoke(emit.Value);
         if (fireFlash) ErrorFlashRequested?.Invoke();
     }
 
@@ -231,12 +260,15 @@ internal sealed class DictationOrchestrator : IDisposable
 
     private void OnPasteDone(Dictation d)
     {
+        DictationState? emit = null;
         lock (_lock)
         {
             if (_disposed) return;
             _queue.Remove(d);
             AdvanceFrontIfReady();
+            emit = CaptureEmitUnderLock();
         }
+        if (emit.HasValue) StateChanged?.Invoke(emit.Value);
     }
 
     private void AdvanceFrontIfReady()
