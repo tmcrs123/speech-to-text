@@ -6,7 +6,8 @@
       "Bash(dotnet --version)",
       "Bash(gh auth *)",
       "Bash(dotnet build *)",
-      "Bash(gh repo *)"
+      "Bash(gh repo *)",
+      "Bash(dotnet test *)"
     ]
   }
 }
