@@ -15,6 +15,7 @@ public sealed class ConfigStore
     private const int DefaultMaxRecordingSeconds = 120;
     private const bool DefaultStartStopSoundsEnabled = true;
     private const bool DefaultAutoStartOnLogin = true;
+    private const bool DefaultWizardCompleted = false;
     private const int CurrentSchemaVersion = 1;
 
     private static readonly ConcurrentDictionary<string, object> FileLocks =
@@ -55,6 +56,9 @@ public sealed class ConfigStore
 
     public string? GetInputDeviceId() => Load().InputDeviceId;
     public void SetInputDeviceId(string? id) => Mutate(s => s.InputDeviceId = id);
+
+    public bool GetWizardCompleted() => Load().WizardCompleted ?? DefaultWizardCompleted;
+    public void SetWizardCompleted(bool value) => Mutate(s => s.WizardCompleted = value);
 
     public int GetSchemaVersion() => Load().SchemaVersion;
 
@@ -136,5 +140,6 @@ public sealed class ConfigStore
         public bool? AutoStartOnLogin { get; set; }
         public string? InputDeviceId { get; set; }
         public string? GroqApiKeyDpapi { get; set; }
+        public bool? WizardCompleted { get; set; }
     }
 }

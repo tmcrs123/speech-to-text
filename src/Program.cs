@@ -8,6 +8,7 @@ internal static class Program
 {
     private static ConsoleCtrlDelegate? _ctrlHandler;
     private static SettingsWindow? _openSettings;
+    private static WizardWindow? _openWizard;
     private static WpfApplication? _wpfApp;
 
     [STAThread]
@@ -48,11 +49,12 @@ internal static class Program
         hook.Install();
         InstallCtrlCHandler(ui);
 
-        // First-run: no API key configured yet. Open settings instead of bailing.
-        if (string.IsNullOrWhiteSpace(configStore.GetGroqApiKey())
-            && configStore.GetTranscriptionBackend() == "cloud")
+        // First-run: walk the user through backend / hotkey / audio setup.
+        // The wizard re-opens on every launch until WizardCompleted is true,
+        // so closing it mid-flow leaves the app unconfigured (and re-prompts).
+        if (!configStore.GetWizardCompleted())
         {
-            ui.Post(_ => OpenSettings(configStore, hook, sounds), null);
+            ui.Post(_ => OpenWizard(configStore, hook), null);
         }
 
         Application.Run();
@@ -70,6 +72,18 @@ internal static class Program
         _openSettings = new SettingsWindow(config, hook, sounds);
         _openSettings.Closed += (_, _) => _openSettings = null;
         _openSettings.Show();
+    }
+
+    private static void OpenWizard(ConfigStore config, KeyboardHook hook)
+    {
+        if (_openWizard != null)
+        {
+            _openWizard.Activate();
+            return;
+        }
+        _openWizard = new WizardWindow(config, hook);
+        _openWizard.Closed += (_, _) => _openWizard = null;
+        _openWizard.Show();
     }
 
     private static void InstallCtrlCHandler(SynchronizationContext ui)

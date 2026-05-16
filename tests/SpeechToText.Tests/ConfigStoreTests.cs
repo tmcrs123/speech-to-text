@@ -160,6 +160,20 @@ public sealed class ConfigStoreTests : IDisposable
     }
 
     [Fact]
+    public void GetWizardCompleted_OnMissingFile_ReturnsFalse()
+    {
+        Assert.False(new ConfigStore(_path).GetWizardCompleted());
+    }
+
+    [Fact]
+    public void SetWizardCompleted_True_RoundTripsAcrossInstances()
+    {
+        new ConfigStore(_path).SetWizardCompleted(true);
+
+        Assert.True(new ConfigStore(_path).GetWizardCompleted());
+    }
+
+    [Fact]
     public void SetGroqApiKey_DoesNotWritePlaintextToDisk()
     {
         const string secret = "gsk_PlAiNtExTsHoUlDnEvErAppEaR_1234567890";
