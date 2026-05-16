@@ -35,8 +35,10 @@ internal static class Program
             paster: new ClipboardPasterAdapter(ui),
             clock: new SystemClock());
 
-        orchestrator.ErrorFlashRequested += () =>
-            Console.Error.WriteLine("error-flash: dictation dropped (empty or failed)");
+        using var sounds = new NAudioSoundPlayer();
+        using var tray = new TrayIcon(ui, sounds);
+        tray.Attach(orchestrator);
+        tray.QuitRequested += () => ui.Post(_ => Application.Exit(), null);
 
         hook.Install();
         InstallCtrlCHandler(ui);

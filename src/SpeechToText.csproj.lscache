@@ -21,7 +21,7 @@ ProjectAssetsFile=<PATH>obj/project.assets.json
 RootNamespace=SpeechToText
 RunAnalyzers=
 RunAnalyzersDuringLiveAnalysis=
-SolutionPath=*Undefined*
+SolutionPath=<PATH>../SpeechToText.sln
 TargetFrameworkIdentifier=.NETCoreApp
 TargetPath=<PATH>bin/Debug/net8.0-windows/SpeechToText.dll
 TargetRefPath=<PATH>obj/Debug/net8.0-windows/ref/SpeechToText.dll
@@ -64,15 +64,18 @@ IAudioCapturer.cs
 IClipboardPaster.cs
 IClock.cs
 IHotkeyListener.cs
+ISoundPlayer.cs
 ITranscriptionBackend.cs
 IWindowTargeter.cs
 KeyboardHook.cs
+NAudioSoundPlayer.cs
 obj/Debug/net8.0-windows/
  .NETCoreApp,Version=v8.0.AssemblyAttributes.cs
  SpeechToText.AssemblyInfo.cs
  SpeechToText.GlobalUsings.g.cs
 Program.cs
 SystemClock.cs
+TrayIcon.cs
 WindowTargeter.cs
 WindowTargeterAdapter.cs
 

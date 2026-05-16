@@ -160,11 +160,13 @@ internal sealed class Harness
     public FakeClock Clock { get; } = new();
     public DictationOrchestrator Orchestrator { get; }
     public List<int> ErrorFlashes { get; } = new();
+    public List<DictationState> StateTransitions { get; } = new();
 
     public Harness(TimeSpan? maxDuration = null)
     {
         Orchestrator = new DictationOrchestrator(
             Hotkey, Audio, Backend, Targeter, Paster, Clock, maxDuration);
         Orchestrator.ErrorFlashRequested += () => ErrorFlashes.Add(ErrorFlashes.Count + 1);
+        Orchestrator.StateChanged += s => StateTransitions.Add(s);
     }
 }
