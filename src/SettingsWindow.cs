@@ -433,6 +433,15 @@ internal sealed class SettingsWindow : Window
             return;
         }
 
+        bool changed =
+            _backend != _config.GetTranscriptionBackend()
+            || _localModel != _config.GetLocalModel()
+            || (!string.IsNullOrWhiteSpace(_apiKey) && _apiKey != _config.GetGroqApiKey())
+            || _chord.ToString() != _config.GetHotkey()
+            || _deviceId != _config.GetInputDeviceId()
+            || !_muteSounds != _config.GetStartStopSoundsEnabled()
+            || _maxSeconds != _config.GetMaxRecordingSeconds();
+
         _config.SetTranscriptionBackend(_backend);
         _config.SetLocalModel(_localModel);
         if (!string.IsNullOrWhiteSpace(_apiKey))
@@ -445,8 +454,26 @@ internal sealed class SettingsWindow : Window
         _hook.Chord = _chord;
         _sounds.Muted = _muteSounds;
 
-        DialogResult = true;
         Close();
+
+        if (changed) RestartApp();
+    }
+
+    private static void RestartApp()
+    {
+        MessageBox.Show(
+            "Settings saved. The app will now restart to apply the changes.",
+            "SpeechToText — restarting",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+
+        var exe = Environment.ProcessPath;
+        if (!string.IsNullOrEmpty(exe))
+        {
+            try { Process.Start(new ProcessStartInfo(exe) { UseShellExecute = false }); }
+            catch (Exception ex) { Trace.TraceWarning($"Restart failed: {ex.Message}"); }
+        }
+        System.Windows.Forms.Application.Exit();
     }
 
     private readonly record struct AudioDeviceItem(string Id, string Name);
