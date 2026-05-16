@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeechToText", "src\SpeechT
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeechToText.Tests", "tests\SpeechToText.Tests\SpeechToText.Tests.csproj", "{6A1B9C7E-2222-4222-8222-222222222222}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SetKey", "tools\SetKey\SetKey.csproj", "{6A1B9C7E-3333-4333-8333-333333333333}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{6A1B9C7E-2222-4222-8222-222222222222}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6A1B9C7E-2222-4222-8222-222222222222}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6A1B9C7E-2222-4222-8222-222222222222}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6A1B9C7E-3333-4333-8333-333333333333}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6A1B9C7E-3333-4333-8333-333333333333}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6A1B9C7E-3333-4333-8333-333333333333}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6A1B9C7E-3333-4333-8333-333333333333}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

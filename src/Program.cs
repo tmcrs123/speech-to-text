@@ -10,12 +10,14 @@ internal static class Program
     [STAThread]
     private static int Main()
     {
-        // string? apiKey = Environment.GetEnvironmentVariable("GROQ_API_KEY");
-        string? apiKey = "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";
+        var configStore = ConfigStore.Default();
+        string? apiKey = configStore.GetGroqApiKey();
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             MessageBox.Show(
-                "GROQ_API_KEY environment variable is not set.\n\nSet it and restart.",
+                "Groq API key is not configured.\n\n" +
+                "Until the settings UI ships, set it via a developer tool / one-off setter " +
+                "that calls ConfigStore.SetGroqApiKey(...).",
                 "SpeechToText",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
