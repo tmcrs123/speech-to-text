@@ -28,10 +28,8 @@ namespace SpeechToText;
 // set.
 internal sealed class WizardWindow : Window
 {
-    private static readonly IReadOnlyList<string> SupportedLocalModels = new[]
-    {
-        "tiny", "base", "small", "medium", "large-v3", "large-v3-turbo",
-    };
+    private readonly WhisperRuntime _detectedRuntime;
+    private readonly IReadOnlyList<string> _supportedLocalModels;
 
     private enum Step
     {
@@ -71,6 +69,12 @@ internal sealed class WizardWindow : Window
     private TextBlock? _apiKeyError;
     private ProgressBar? _apiKeyBusy;
     private ComboBox? _localModelBox;
+    private TextBlock? _localModelStatus;
+    private ProgressBar? _localModelProgress;
+    private Button? _localModelDownloadButton;
+    private Button? _localModelCancelButton;
+    private CancellationTokenSource? _localModelDownloadCts;
+    private bool _localModelReady;
     private TextBlock? _chordLabel;
     private ComboBox? _deviceBox;
 
@@ -80,9 +84,13 @@ internal sealed class WizardWindow : Window
         _hook = hook;
         _httpClientFactory = httpClientFactory ?? DefaultHttpClientFactory;
 
+        _detectedRuntime = WhisperRuntimeDetector.Detect();
+        _supportedLocalModels = WhisperRuntimeDetector.ViableModels(_detectedRuntime);
+
         _backend = config.GetTranscriptionBackend();
         _apiKey = config.GetGroqApiKey();
         _localModel = config.GetLocalModel();
+        if (!_supportedLocalModels.Contains(_localModel)) _localModel = _supportedLocalModels[^1];
         _chord = ChordDescriptor.TryParse(config.GetHotkey(), out var c)
             ? c
             : new ChordDescriptor(ChordModifiers.Ctrl | ChordModifiers.Shift, System.Windows.Forms.Keys.Space);
@@ -323,28 +331,143 @@ internal sealed class WizardWindow : Window
         var panel = new StackPanel();
         panel.Children.Add(new TextBlock
         {
-            Text = "Pick a Whisper model size. Larger models are more accurate but slower and need more memory.",
+            Text = $"Pick a Whisper model size. Larger models are more accurate but slower and need more memory. "
+                 + $"Detected runtime: {_detectedRuntime} — only sizes viable for this runtime are listed.",
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 0, 0, 8),
         });
 
-        _localModelBox = new ComboBox { ItemsSource = SupportedLocalModels, SelectedItem = _localModel };
+        _localModelBox = new ComboBox { ItemsSource = _supportedLocalModels, SelectedItem = _localModel };
         _localModelBox.SelectionChanged += (_, _) =>
         {
-            if (_localModelBox.SelectedItem is string s) _localModel = s;
+            if (_localModelBox.SelectedItem is string s)
+            {
+                _localModel = s;
+                _localModelReady = WhisperModelDownloader.IsAlreadyDownloaded(_localModel);
+                UpdateLocalModelStatus();
+            }
         };
         panel.Children.Add(_localModelBox);
 
-        panel.Children.Add(new TextBlock
+        var buttonRow = new StackPanel
         {
-            Text = "Model download (with progress and integrity check) ships in a follow-up slice. "
-                 + "Your selection is recorded; the download will run on first use.",
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(0, 12, 0, 0),
+        };
+        _localModelDownloadButton = new Button
+        {
+            Content = "Download",
+            Padding = new Thickness(12, 4, 12, 4),
+            Margin = new Thickness(0, 0, 8, 0),
+        };
+        _localModelDownloadButton.Click += async (_, _) => await DownloadLocalModelAsync().ConfigureAwait(true);
+        buttonRow.Children.Add(_localModelDownloadButton);
+
+        _localModelCancelButton = new Button
+        {
+            Content = "Cancel",
+            Padding = new Thickness(12, 4, 12, 4),
+            IsEnabled = false,
+        };
+        _localModelCancelButton.Click += (_, _) => _localModelDownloadCts?.Cancel();
+        buttonRow.Children.Add(_localModelCancelButton);
+        panel.Children.Add(buttonRow);
+
+        _localModelProgress = new ProgressBar
+        {
+            Height = 6,
+            Minimum = 0,
+            Maximum = 1,
+            Margin = new Thickness(0, 8, 0, 0),
+        };
+        panel.Children.Add(_localModelProgress);
+
+        _localModelStatus = new TextBlock
+        {
             TextWrapping = TextWrapping.Wrap,
             FontSize = 11,
             Foreground = System.Windows.Media.Brushes.Gray,
-            Margin = new Thickness(0, 8, 0, 0),
-        });
+            Margin = new Thickness(0, 6, 0, 0),
+        };
+        panel.Children.Add(_localModelStatus);
+
+        _localModelReady = WhisperModelDownloader.IsAlreadyDownloaded(_localModel);
+        UpdateLocalModelStatus();
         return panel;
+    }
+
+    private void UpdateLocalModelStatus()
+    {
+        if (_localModelStatus == null) return;
+        if (_localModelReady)
+        {
+            _localModelStatus.Text = $"'{_localModel}' is downloaded and ready. Click Next to continue.";
+            _localModelStatus.Foreground = System.Windows.Media.Brushes.DarkGreen;
+            if (_localModelDownloadButton != null) _localModelDownloadButton.Content = "Re-download";
+        }
+        else
+        {
+            _localModelStatus.Text = $"'{_localModel}' is not downloaded yet. Click Download to fetch it before continuing.";
+            _localModelStatus.Foreground = System.Windows.Media.Brushes.Gray;
+            if (_localModelDownloadButton != null) _localModelDownloadButton.Content = "Download";
+        }
+        if (_localModelProgress != null) _localModelProgress.Value = _localModelReady ? 1 : 0;
+    }
+
+    private async Task DownloadLocalModelAsync()
+    {
+        if (_localModelDownloadCts != null) return;
+        if (_localModelStatus == null || _localModelProgress == null
+            || _localModelDownloadButton == null || _localModelCancelButton == null
+            || _localModelBox == null) return;
+
+        _localModelReady = false;
+        _localModelDownloadCts = new CancellationTokenSource();
+        _localModelDownloadButton.IsEnabled = false;
+        _localModelCancelButton.IsEnabled = true;
+        _localModelBox.IsEnabled = false;
+        _backButton.IsEnabled = false;
+        _nextButton.IsEnabled = false;
+        _localModelProgress.Value = 0;
+        _localModelStatus.Foreground = System.Windows.Media.Brushes.Gray;
+        _localModelStatus.Text = $"Downloading '{_localModel}'…";
+
+        var progress = new Progress<WhisperModelDownloader.DownloadProgress>(p =>
+        {
+            if (p.Fraction is double f) _localModelProgress.Value = f;
+            var mb = p.BytesReceived / (1024.0 * 1024.0);
+            var totalMb = p.TotalBytes is long tb ? $" of {tb / (1024.0 * 1024.0):F0} MB" : "";
+            _localModelStatus.Text = $"Downloading '{_localModel}'… {mb:F1} MB{totalMb}";
+        });
+
+        try
+        {
+            await WhisperModelDownloader
+                .DownloadAsync(_localModel, progress, httpClient: null, _localModelDownloadCts.Token)
+                .ConfigureAwait(true);
+            _localModelReady = true;
+            UpdateLocalModelStatus();
+        }
+        catch (OperationCanceledException)
+        {
+            _localModelStatus.Foreground = System.Windows.Media.Brushes.DimGray;
+            _localModelStatus.Text = "Download cancelled.";
+        }
+        catch (Exception ex)
+        {
+            _localModelStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+            _localModelStatus.Text = $"Download failed: {ex.Message}";
+        }
+        finally
+        {
+            _localModelDownloadCts.Dispose();
+            _localModelDownloadCts = null;
+            _localModelDownloadButton.IsEnabled = true;
+            _localModelCancelButton.IsEnabled = false;
+            _localModelBox.IsEnabled = true;
+            _backButton.IsEnabled = _history.Count > 0;
+            _nextButton.IsEnabled = true;
+        }
     }
 
     private UIElement BuildHotkeyBody()
@@ -502,6 +625,15 @@ internal sealed class WizardWindow : Window
                 break;
 
             case Step.LocalModel:
+                if (!_localModelReady)
+                {
+                    if (_localModelStatus != null)
+                    {
+                        _localModelStatus.Foreground = System.Windows.Media.Brushes.Firebrick;
+                        _localModelStatus.Text = $"Download '{_localModel}' before continuing.";
+                    }
+                    return;
+                }
                 _config.SetLocalModel(_localModel);
                 GoTo(Step.Hotkey);
                 break;
