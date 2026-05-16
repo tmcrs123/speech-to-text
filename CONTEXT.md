@@ -25,7 +25,7 @@ The phase of a **Dictation** after transcription returns, during which the trans
 _Avoid_: inserting, typing
 
 **Transcription Backend**:
-A pluggable component that converts captured audio into text. Concrete implementations: **Cloud Backend** (Groq) and **Local Backend** (Whisper variant, TBD).
+A pluggable component that converts captured audio into text. Concrete implementations: **Cloud Backend** (Groq) and **Local Backend** (Whisper.NET).
 _Avoid_: provider, engine, model
 
 **Cloud Backend**:
@@ -33,7 +33,7 @@ A **Transcription Backend** that sends audio to a hosted API. Currently Groq whi
 _Avoid_: remote, online
 
 **Local Backend**:
-A **Transcription Backend** that runs the model on the user's machine. Specific implementation TBD.
+A **Transcription Backend** that runs the model on the user's machine via Whisper.NET (whisper.cpp under the hood). Picks the best available runtime in order CUDA → Vulkan → CPU; the first-run wizard downloads the chosen ggml model into `%APPDATA%\SpeechToText\models\`.
 _Avoid_: offline, on-device
 
 ## Relationships

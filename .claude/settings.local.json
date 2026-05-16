@@ -8,7 +8,9 @@
       "Bash(dotnet build *)",
       "Bash(gh repo *)",
       "Bash(dotnet test *)",
-      "PowerShell(Stop-Process *)"
+      "PowerShell(Stop-Process *)",
+      "Bash(gh pr *)",
+      "Bash(dotnet restore *)"
     ]
   }
 }
