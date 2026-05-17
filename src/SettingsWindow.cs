@@ -51,6 +51,7 @@ internal sealed class SettingsWindow : Window
     private int _maxSeconds;
     private bool _muteSounds;
     private bool _autoStartOnLogin;
+    private bool _showRecordingIndicator;
 
     // Controls referenced after construction.
     private RadioButton _cloudRadio = null!;
@@ -63,6 +64,7 @@ internal sealed class SettingsWindow : Window
     private ComboBox _deviceBox = null!;
     private CheckBox _muteCheck = null!;
     private CheckBox _autoStartCheck = null!;
+    private CheckBox _recordingIndicatorCheck = null!;
     private TextBox _maxSecondsBox = null!;
     private StackPanel _cloudPanel = null!;
     private StackPanel _localPanel = null!;
@@ -82,6 +84,7 @@ internal sealed class SettingsWindow : Window
         _maxSeconds = config.GetMaxRecordingSeconds();
         _muteSounds = !config.GetStartStopSoundsEnabled();
         _autoStartOnLogin = config.GetAutoStartOnLogin();
+        _showRecordingIndicator = config.GetShowRecordingIndicator();
 
         Title = "SpeechToText — Settings";
         Width = 520;
@@ -261,6 +264,18 @@ internal sealed class SettingsWindow : Window
             Margin = new Thickness(0, 4, 0, 0),
             TextWrapping = TextWrapping.Wrap,
         });
+
+        _recordingIndicatorCheck = new CheckBox
+        {
+            Content = "Show Recording Indicator during recording",
+            IsChecked = _showRecordingIndicator,
+            Margin = new Thickness(0, 16, 0, 0),
+            ToolTip = "When off, the recording indicator overlay is hidden. Takes effect on the next recording.",
+        };
+        _recordingIndicatorCheck.Checked += (_, _) => _showRecordingIndicator = true;
+        _recordingIndicatorCheck.Unchecked += (_, _) => _showRecordingIndicator = false;
+        panel.Children.Add(_recordingIndicatorCheck);
+
         return panel;
     }
 
@@ -467,6 +482,7 @@ internal sealed class SettingsWindow : Window
         _config.SetStartStopSoundsEnabled(!_muteSounds);
         _config.SetMaxRecordingSeconds(_maxSeconds);
         _config.SetAutoStartOnLogin(_autoStartOnLogin);
+        _config.SetShowRecordingIndicator(_showRecordingIndicator);
 
         _hook.Chord = _chord;
         _sounds.Muted = _muteSounds;
