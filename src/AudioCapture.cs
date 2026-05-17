@@ -12,6 +12,8 @@ internal sealed class AudioCapture : IDisposable
     private WaveInEvent? _waveIn;
     private MemoryStream? _pcm;
 
+    public event Action<float>? LevelChanged;
+
     public void Start(int deviceNumber = -1)
     {
         if (_waveIn != null) throw new InvalidOperationException("already recording");
@@ -23,8 +25,26 @@ internal sealed class AudioCapture : IDisposable
             BufferMilliseconds = 50,
             DeviceNumber = deviceNumber,
         };
-        _waveIn.DataAvailable += (_, e) => _pcm!.Write(e.Buffer, 0, e.BytesRecorded);
+        _waveIn.DataAvailable += (_, e) =>
+        {
+            _pcm!.Write(e.Buffer, 0, e.BytesRecorded);
+            LevelChanged?.Invoke(ComputeRms(e.Buffer, e.BytesRecorded));
+        };
         _waveIn.StartRecording();
+    }
+
+    private static float ComputeRms(byte[] buffer, int count)
+    {
+        int samples = count / 2; // 16-bit samples
+        if (samples == 0) return 0f;
+        double sum = 0;
+        for (int i = 0; i < count - 1; i += 2)
+        {
+            short s = (short)(buffer[i] | (buffer[i + 1] << 8));
+            double v = s / 32768.0;
+            sum += v * v;
+        }
+        return (float)Math.Sqrt(sum / samples);
     }
 
     public byte[] StopAndGetWav()
