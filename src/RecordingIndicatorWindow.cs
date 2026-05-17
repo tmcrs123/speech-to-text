@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using Brushes = System.Windows.Media.Brushes;
 using Color = System.Windows.Media.Color;
 using HorizontalAlignment = System.Windows.HorizontalAlignment;
@@ -21,12 +22,19 @@ namespace SpeechToText;
 // Recording-end and click-through to the window beneath it is load-bearing.
 internal sealed class RecordingIndicatorWindow : Window
 {
-    // The glyph is intentionally small and subtle. A later slice replaces the
-    // static bars with a live audio meter; the surrounding chrome (pill,
-    // bottom-margin, focused-monitor anchor) should not need to change.
     private const double WindowWidthDip = 120;
     private const double WindowHeightDip = 36;
     private const double BottomMarginDip = 80;
+
+    // Bar heights (DIPs) at full-scale signal. Center bar is tallest.
+    private static readonly double[] MaxHeights = { 12, 16, 20, 16, 12 };
+    private const double MinBarHeight = 2.0;
+
+    private Rectangle[] _bars = Array.Empty<Rectangle>();
+    private volatile float _latestLevel;
+    private float _envelope;
+    private double _idlePhase;
+    private DispatcherTimer? _meterTimer;
 
     public RecordingIndicatorWindow()
     {
@@ -65,12 +73,17 @@ internal sealed class RecordingIndicatorWindow : Window
             ex | WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
     }
 
-    // Subscribe to orchestrator. Called once after construction; the event
-    // fires from worker threads, so we marshal to the WPF dispatcher.
-    public void Attach(DictationOrchestrator orchestrator)
+    // Subscribe to orchestrator and capturer. Called once after construction;
+    // RecordingActiveChanged fires from worker threads so we marshal to the
+    // WPF dispatcher. LevelChanged fires from the audio capture thread at ~20 Hz.
+    public void Attach(DictationOrchestrator orchestrator, IAudioCapturer capturer)
     {
+        capturer.LevelChanged += OnLevelChanged;
         orchestrator.RecordingActiveChanged += OnRecordingActiveChanged;
     }
+
+    // Written from the audio capture thread; read on the UI thread via the 30 Hz timer.
+    private void OnLevelChanged(float level) => _latestLevel = level;
 
     private void OnRecordingActiveChanged(bool active)
     {
@@ -90,11 +103,70 @@ internal sealed class RecordingIndicatorWindow : Window
         {
             PositionAtFocusedMonitor();
             if (!IsVisible) Show();
+            StartMeterTimer();
         }
         else
         {
+            StopMeterTimer();
+            ResetBars();
             if (IsVisible) Hide();
         }
+    }
+
+    private void StartMeterTimer()
+    {
+        if (_meterTimer != null) return;
+        _meterTimer = new DispatcherTimer(DispatcherPriority.Render)
+        {
+            Interval = TimeSpan.FromMilliseconds(33) // ~30 Hz
+        };
+        _meterTimer.Tick += OnMeterTick;
+        _meterTimer.Start();
+    }
+
+    private void StopMeterTimer()
+    {
+        if (_meterTimer == null) return;
+        _meterTimer.Stop();
+        _meterTimer.Tick -= OnMeterTick;
+        _meterTimer = null;
+    }
+
+    private void OnMeterTick(object? sender, EventArgs e)
+    {
+        float raw = _latestLevel;
+
+        // Envelope follower: fast attack so speech onset is perceptible within ~50 ms,
+        // faster release so muted-mic silence is visible within ~100 ms.
+        const float AttackFactor = 0.80f;
+        const float ReleaseFactor = 0.50f;
+        float factor = raw > _envelope ? AttackFactor : ReleaseFactor;
+        _envelope = _envelope + (raw - _envelope) * factor;
+
+        float display = Math.Clamp(_envelope, 0f, 1f);
+
+        // Idle animation: gentle sine-wave breathing when there is no real signal,
+        // so the indicator is visibly alive even in silence.
+        _idlePhase += 0.10; // ~0.5 Hz at 30 Hz timer
+        double idleFraction = Math.Max(0.0, 1.0 - display / 0.05);
+        double idleFloor = 0.06 * idleFraction * (Math.Sin(_idlePhase) + 1.0) / 2.0;
+        display = (float)Math.Max(display, idleFloor);
+
+        UpdateBars(display);
+    }
+
+    private void UpdateBars(float level)
+    {
+        for (int i = 0; i < _bars.Length; i++)
+            _bars[i].Height = MinBarHeight + (MaxHeights[i] - MinBarHeight) * level;
+    }
+
+    private void ResetBars()
+    {
+        _latestLevel = 0;
+        _envelope = 0;
+        foreach (var bar in _bars)
+            bar.Height = MinBarHeight;
     }
 
     private void PositionAtFocusedMonitor()
@@ -121,7 +193,7 @@ internal sealed class RecordingIndicatorWindow : Window
         Top = bottomRight.Y - WindowHeightDip - BottomMarginDip;
     }
 
-    private static UIElement BuildGlyph()
+    private UIElement BuildGlyph()
     {
         var border = new Border
         {
@@ -131,28 +203,30 @@ internal sealed class RecordingIndicatorWindow : Window
             BorderThickness = new Thickness(1),
             Padding = new Thickness(12, 6, 12, 6),
         };
-        var bars = new StackPanel
+        var panel = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
         };
-        double[] heights = { 8, 14, 20, 14, 8 };
         var fill = new SolidColorBrush(Color.FromArgb(220, 230, 230, 230));
-        foreach (double h in heights)
+        _bars = new Rectangle[MaxHeights.Length];
+        for (int i = 0; i < MaxHeights.Length; i++)
         {
-            bars.Children.Add(new Rectangle
+            var rect = new Rectangle
             {
                 Width = 3,
-                Height = h,
+                Height = MinBarHeight,
                 Margin = new Thickness(2, 0, 2, 0),
                 Fill = fill,
                 RadiusX = 1.5,
                 RadiusY = 1.5,
                 VerticalAlignment = VerticalAlignment.Center,
-            });
+            };
+            _bars[i] = rect;
+            panel.Children.Add(rect);
         }
-        border.Child = bars;
+        border.Child = panel;
         return border;
     }
 

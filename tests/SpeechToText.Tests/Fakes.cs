@@ -19,6 +19,9 @@ internal sealed class FakeAudioCapturer : IAudioCapturer
     public bool IsRecording { get; private set; }
     public byte[] WavToReturn { get; set; } = new byte[] { 0x52, 0x49, 0x46, 0x46 }; // "RIFF"
 
+    // Never fired by the fake — tests that need level signals can invoke it directly.
+    public event Action<float>? LevelChanged;
+
     public void Start()
     {
         if (IsRecording) throw new InvalidOperationException("FakeAudioCapturer: already recording");
@@ -39,6 +42,8 @@ internal sealed class FakeAudioCapturer : IAudioCapturer
         IsRecording = false;
         AbortCalls++;
     }
+
+    public void RaiseLevel(float level) => LevelChanged?.Invoke(level);
 }
 
 internal sealed class FakeTranscriptionBackend : ITranscriptionBackend

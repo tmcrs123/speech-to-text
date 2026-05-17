@@ -42,9 +42,10 @@ internal static class Program
         using var hook = new KeyboardHook(initialChord);
         var backend = ResolveBackend(configStore, out var backendError);
         _backendDisposable = backend as IDisposable;
+        var audioCapturer = new AudioCapturerAdapter(configStore);
         var orchestrator = new DictationOrchestrator(
             hotkey: hook,
-            audio: new AudioCapturerAdapter(configStore),
+            audio: audioCapturer,
             backend: backend,
             targeter: new WindowTargeterAdapter(),
             paster: new ClipboardPasterAdapter(ui),
@@ -62,7 +63,7 @@ internal static class Program
         // driven by RecordingActiveChanged. Created once at startup so first-show
         // latency doesn't reach the user (issue #25 AC).
         var indicator = new RecordingIndicatorWindow();
-        indicator.Attach(orchestrator);
+        indicator.Attach(orchestrator, audioCapturer);
 
         hook.Install();
         InstallCtrlCHandler(ui);

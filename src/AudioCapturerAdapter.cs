@@ -14,11 +14,14 @@ internal sealed class AudioCapturerAdapter : IAudioCapturer
         _config = config;
     }
 
+    public event Action<float>? LevelChanged;
+
     public void Start()
     {
         _capture?.Dispose();
         var deviceNumber = AudioDevices.ResolveWaveInDeviceNumber(_config.GetInputDeviceId());
         _capture = new AudioCapture();
+        _capture.LevelChanged += level => LevelChanged?.Invoke(level);
         _capture.Start(deviceNumber);
     }
 
