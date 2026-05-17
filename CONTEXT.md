@@ -24,6 +24,10 @@ _Avoid_: processing, inferring
 The phase of a **Dictation** after transcription returns, during which the transcribed text is written to the clipboard verbatim, Ctrl+V is dispatched to the target window, and the prior clipboard contents are restored.
 _Avoid_: inserting, typing
 
+**Recording Indicator**:
+A small, always-on-top, click-through window that is visible exactly when at least one **Dictation** is in the **Recording** phase. Shows a live audio meter driven by the active mic input. Anchored to the bottom-centre of the monitor that owns the focused window at **Recording**-start. Purely passive — never takes focus, never receives input.
+_Avoid_: widget, overlay, HUD, meter
+
 **Transcription Backend**:
 A pluggable component that converts captured audio into text. Concrete implementations: **Cloud Backend** (Groq) and **Local Backend** (Whisper.NET).
 _Avoid_: provider, engine, model
@@ -44,6 +48,7 @@ _Avoid_: offline, on-device
 - A **Hotkey** tap during **Transcribing** or **Pasting** starts a new **Dictation** that is queued behind the in-flight one — nothing in flight is cancelled.
 - **Esc** during **Recording** aborts the current **Dictation**; no audio is sent to the **Transcription Backend** and no text is pasted.
 - A **Dictation** that produces empty or whitespace-only text, or fails in **Transcribing**, is silently dropped (no paste, no clipboard touch); the tray icon flashes the error state briefly.
+- The **Recording Indicator** is shown whenever any **Dictation** in the queue is in the **Recording** phase, and hidden otherwise. This is independent of the tray icon, which reflects the front-of-queue phase only — so a queued **Recording** behind a still-**Transcribing** front dictation shows the **Recording Indicator** while the tray icon continues to show **Transcribing**.
 
 ## Example dialogue
 
