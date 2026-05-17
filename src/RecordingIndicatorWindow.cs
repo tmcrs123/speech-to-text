@@ -166,7 +166,7 @@ internal sealed class RecordingIndicatorWindow : Window
     {
         if (rms <= 0f) return 0f;
         float db = 20f * (float)Math.Log10(rms);
-        return Math.Clamp((db + 48f) / 30f, 0f, 1f);
+        return Math.Clamp((db + 48f) / 10f, 0f, 1f);
     }
 
     private void UpdateBars(float level)
