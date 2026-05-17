@@ -63,7 +63,7 @@ internal static class Program
         // driven by RecordingActiveChanged. Created once at startup so first-show
         // latency doesn't reach the user (issue #25 AC).
         var indicator = new RecordingIndicatorWindow();
-        indicator.Attach(orchestrator, audioCapturer);
+        indicator.Attach(orchestrator, audioCapturer, configStore);
 
         hook.Install();
         InstallCtrlCHandler(ui);

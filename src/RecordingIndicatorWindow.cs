@@ -35,6 +35,7 @@ internal sealed class RecordingIndicatorWindow : Window
     private float _envelope;
     private double _idlePhase;
     private DispatcherTimer? _meterTimer;
+    private ConfigStore? _config;
 
     public RecordingIndicatorWindow()
     {
@@ -76,8 +77,9 @@ internal sealed class RecordingIndicatorWindow : Window
     // Subscribe to orchestrator and capturer. Called once after construction;
     // RecordingActiveChanged fires from worker threads so we marshal to the
     // WPF dispatcher. LevelChanged fires from the audio capture thread at ~20 Hz.
-    public void Attach(DictationOrchestrator orchestrator, IAudioCapturer capturer)
+    public void Attach(DictationOrchestrator orchestrator, IAudioCapturer capturer, ConfigStore config)
     {
+        _config = config;
         capturer.LevelChanged += OnLevelChanged;
         orchestrator.RecordingActiveChanged += OnRecordingActiveChanged;
     }
@@ -101,6 +103,7 @@ internal sealed class RecordingIndicatorWindow : Window
     {
         if (active)
         {
+            if (_config?.GetShowRecordingIndicator() == false) return;
             PositionAtFocusedMonitor();
             if (!IsVisible) Show();
             StartMeterTimer();
