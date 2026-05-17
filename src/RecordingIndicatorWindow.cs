@@ -158,13 +158,15 @@ internal sealed class RecordingIndicatorWindow : Window
         UpdateBars(display);
     }
 
-    // Maps linear RMS [0, 1] to a display value [0, 1] using a -48 dBFS log scale.
-    // Conversational speech (RMS ~0.01–0.1) lands in the lower-to-mid range.
+    // Maps linear RMS [0, 1] to a display value [0, 1].
+    // 30 dB window: floor at −48 dBFS (silence), full scale at −18 dBFS.
+    // Conversational speech (RMS ~0.05–0.15, i.e. −26 to −16 dBFS) maps to
+    // 70–100% of the bar range so movement is clearly visible.
     private static float RmsToDisplay(float rms)
     {
         if (rms <= 0f) return 0f;
         float db = 20f * (float)Math.Log10(rms);
-        return Math.Clamp((db + 48f) / 48f, 0f, 1f);
+        return Math.Clamp((db + 48f) / 30f, 0f, 1f);
     }
 
     private void UpdateBars(float level)
