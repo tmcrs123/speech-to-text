@@ -40,6 +40,7 @@ internal sealed class SettingsWindow : Window
     private readonly ConfigStore _config;
     private readonly KeyboardHook _hook;
     private readonly ISoundPlayer _sounds;
+    private readonly LoginAutoStart? _autoStart;
 
     // Buffered state — written to ConfigStore only on Save.
     private string _backend;
@@ -49,6 +50,7 @@ internal sealed class SettingsWindow : Window
     private string? _deviceId;
     private int _maxSeconds;
     private bool _muteSounds;
+    private bool _autoStartOnLogin;
 
     // Controls referenced after construction.
     private RadioButton _cloudRadio = null!;
@@ -60,15 +62,17 @@ internal sealed class SettingsWindow : Window
     private TextBlock _chordLabel = null!;
     private ComboBox _deviceBox = null!;
     private CheckBox _muteCheck = null!;
+    private CheckBox _autoStartCheck = null!;
     private TextBox _maxSecondsBox = null!;
     private StackPanel _cloudPanel = null!;
     private StackPanel _localPanel = null!;
 
-    public SettingsWindow(ConfigStore config, KeyboardHook hook, ISoundPlayer sounds)
+    public SettingsWindow(ConfigStore config, KeyboardHook hook, ISoundPlayer sounds, LoginAutoStart? autoStart = null)
     {
         _config = config;
         _hook = hook;
         _sounds = sounds;
+        _autoStart = autoStart;
 
         _backend = config.GetTranscriptionBackend();
         _localModel = config.GetLocalModel();
@@ -77,6 +81,7 @@ internal sealed class SettingsWindow : Window
         _deviceId = config.GetInputDeviceId();
         _maxSeconds = config.GetMaxRecordingSeconds();
         _muteSounds = !config.GetStartStopSoundsEnabled();
+        _autoStartOnLogin = config.GetAutoStartOnLogin();
 
         Title = "SpeechToText — Settings";
         Width = 520;
@@ -322,11 +327,21 @@ internal sealed class SettingsWindow : Window
         {
             Content = "Mute start/stop sounds",
             IsChecked = _muteSounds,
-            Margin = new Thickness(0, 0, 0, 16),
+            Margin = new Thickness(0, 0, 0, 8),
         };
         _muteCheck.Checked += (_, _) => _muteSounds = true;
         _muteCheck.Unchecked += (_, _) => _muteSounds = false;
         panel.Children.Add(_muteCheck);
+
+        _autoStartCheck = new CheckBox
+        {
+            Content = "Start with Windows (launch on login, minimised to tray)",
+            IsChecked = _autoStartOnLogin,
+            Margin = new Thickness(0, 0, 0, 16),
+        };
+        _autoStartCheck.Checked += (_, _) => _autoStartOnLogin = true;
+        _autoStartCheck.Unchecked += (_, _) => _autoStartOnLogin = false;
+        panel.Children.Add(_autoStartCheck);
 
         panel.Children.Add(new TextBlock
         {
@@ -440,7 +455,8 @@ internal sealed class SettingsWindow : Window
             || _chord.ToString() != _config.GetHotkey()
             || _deviceId != _config.GetInputDeviceId()
             || !_muteSounds != _config.GetStartStopSoundsEnabled()
-            || _maxSeconds != _config.GetMaxRecordingSeconds();
+            || _maxSeconds != _config.GetMaxRecordingSeconds()
+            || _autoStartOnLogin != _config.GetAutoStartOnLogin();
 
         _config.SetTranscriptionBackend(_backend);
         _config.SetLocalModel(_localModel);
@@ -450,9 +466,14 @@ internal sealed class SettingsWindow : Window
         _config.SetInputDeviceId(_deviceId);
         _config.SetStartStopSoundsEnabled(!_muteSounds);
         _config.SetMaxRecordingSeconds(_maxSeconds);
+        _config.SetAutoStartOnLogin(_autoStartOnLogin);
 
         _hook.Chord = _chord;
         _sounds.Muted = _muteSounds;
+        // Reflect the (possibly new) auto-start flag into the HKCU Run entry
+        // immediately so it takes effect on the very next login — no restart
+        // needed (and the visible restart prompt below is for other settings).
+        _autoStart?.Apply(_autoStartOnLogin);
 
         Close();
 
