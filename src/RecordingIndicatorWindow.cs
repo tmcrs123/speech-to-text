@@ -141,18 +141,30 @@ internal sealed class RecordingIndicatorWindow : Window
         const float AttackFactor = 0.80f;
         const float ReleaseFactor = 0.50f;
         float factor = raw > _envelope ? AttackFactor : ReleaseFactor;
-        _envelope = _envelope + (raw - _envelope) * factor;
+        _envelope = Math.Clamp(_envelope + (raw - _envelope) * factor, 0f, 1f);
 
-        float display = Math.Clamp(_envelope, 0f, 1f);
+        // Log scale so normal conversational speech (RMS ~0.01–0.1, i.e. -40 to -20 dBFS)
+        // maps to the middle of the bar range rather than staying near the floor.
+        float display = RmsToDisplay(_envelope);
 
-        // Idle animation: gentle sine-wave breathing when there is no real signal,
-        // so the indicator is visibly alive even in silence.
+        // Idle animation: gentle sine-wave breathing when signal is truly silent,
+        // so the indicator is visibly alive even when the mic picks up nothing.
+        // Fades out as real signal arrives (display > 0.15 ≈ RMS ~0.007).
         _idlePhase += 0.10; // ~0.5 Hz at 30 Hz timer
-        double idleFraction = Math.Max(0.0, 1.0 - display / 0.05);
-        double idleFloor = 0.06 * idleFraction * (Math.Sin(_idlePhase) + 1.0) / 2.0;
-        display = (float)Math.Max(display, idleFloor);
+        float idleAmplitude = 0.20f * Math.Max(0f, 1f - display / 0.15f);
+        double breathe = idleAmplitude * (Math.Sin(_idlePhase) + 1.0) / 2.0;
+        display = Math.Max(display, (float)breathe);
 
         UpdateBars(display);
+    }
+
+    // Maps linear RMS [0, 1] to a display value [0, 1] using a -48 dBFS log scale.
+    // Conversational speech (RMS ~0.01–0.1) lands in the lower-to-mid range.
+    private static float RmsToDisplay(float rms)
+    {
+        if (rms <= 0f) return 0f;
+        float db = 20f * (float)Math.Log10(rms);
+        return Math.Clamp((db + 48f) / 48f, 0f, 1f);
     }
 
     private void UpdateBars(float level)
