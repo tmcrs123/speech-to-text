@@ -10,7 +10,8 @@
       "Bash(dotnet test *)",
       "PowerShell(Stop-Process *)",
       "Bash(gh pr *)",
-      "Bash(dotnet restore *)"
+      "Bash(dotnet restore *)",
+      "Bash(git stash *)"
     ]
   }
 }

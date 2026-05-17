@@ -14,9 +14,17 @@ internal static class Program
     private static IDisposable? _backendDisposable;
 
     [STAThread]
-    private static int Main()
+    private static int Main(string[] args)
     {
+        // --minimized is set by the HKCU Run entry when the app is launched on
+        // login. The startup path already starts to-tray with no visible
+        // window, so the flag is a marker for future-proofing and tracing.
+        bool launchedMinimized = args.Any(a =>
+            string.Equals(a, "--minimized", StringComparison.OrdinalIgnoreCase));
+        if (launchedMinimized) Trace.TraceInformation("Program: launched with --minimized.");
+
         var configStore = ConfigStore.Default();
+        var autoStart = LoginAutoStart.Default();
 
         ApplicationConfiguration.Initialize();
         SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
@@ -48,7 +56,7 @@ internal static class Program
         using var tray = new TrayIcon(ui, sounds);
         tray.Attach(orchestrator);
         tray.QuitRequested += () => ui.Post(_ => Application.Exit(), null);
-        tray.SettingsRequested += () => ui.Post(_ => OpenSettings(configStore, hook, sounds), null);
+        tray.SettingsRequested += () => ui.Post(_ => OpenSettings(configStore, hook, sounds, autoStart), null);
 
         hook.Install();
         InstallCtrlCHandler(ui);
@@ -72,7 +80,7 @@ internal static class Program
                     MessageBoxIcon.Warning);
                 configStore.SetWizardCompleted(false);
             }
-            ui.Post(_ => OpenWizard(configStore, hook), null);
+            ui.Post(_ => OpenWizard(configStore, hook, autoStart), null);
         }
 
         Application.Run();
@@ -113,26 +121,26 @@ internal static class Program
                 $"Transcription Backend is unavailable: {_reason}. Re-run the setup wizard."));
     }
 
-    private static void OpenSettings(ConfigStore config, KeyboardHook hook, ISoundPlayer sounds)
+    private static void OpenSettings(ConfigStore config, KeyboardHook hook, ISoundPlayer sounds, LoginAutoStart autoStart)
     {
         if (_openSettings != null)
         {
             _openSettings.Activate();
             return;
         }
-        _openSettings = new SettingsWindow(config, hook, sounds);
+        _openSettings = new SettingsWindow(config, hook, sounds, autoStart);
         _openSettings.Closed += (_, _) => _openSettings = null;
         _openSettings.Show();
     }
 
-    private static void OpenWizard(ConfigStore config, KeyboardHook hook)
+    private static void OpenWizard(ConfigStore config, KeyboardHook hook, LoginAutoStart autoStart)
     {
         if (_openWizard != null)
         {
             _openWizard.Activate();
             return;
         }
-        _openWizard = new WizardWindow(config, hook);
+        _openWizard = new WizardWindow(config, hook, autoStart: autoStart);
         _openWizard.Closed += (_, _) => _openWizard = null;
         _openWizard.Show();
     }

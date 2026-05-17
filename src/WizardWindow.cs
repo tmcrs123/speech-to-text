@@ -45,6 +45,7 @@ internal sealed class WizardWindow : Window
     private readonly ConfigStore _config;
     private readonly KeyboardHook _hook;
     private readonly Func<HttpClient> _httpClientFactory;
+    private readonly LoginAutoStart? _autoStart;
 
     // Buffered state.
     private string _backend;
@@ -78,11 +79,12 @@ internal sealed class WizardWindow : Window
     private TextBlock? _chordLabel;
     private ComboBox? _deviceBox;
 
-    public WizardWindow(ConfigStore config, KeyboardHook hook, Func<HttpClient>? httpClientFactory = null)
+    public WizardWindow(ConfigStore config, KeyboardHook hook, Func<HttpClient>? httpClientFactory = null, LoginAutoStart? autoStart = null)
     {
         _config = config;
         _hook = hook;
         _httpClientFactory = httpClientFactory ?? DefaultHttpClientFactory;
+        _autoStart = autoStart;
 
         _detectedRuntime = WhisperRuntimeDetector.Detect();
         _supportedLocalModels = WhisperRuntimeDetector.ViableModels(_detectedRuntime);
@@ -651,6 +653,9 @@ internal sealed class WizardWindow : Window
 
             case Step.Summary:
                 _config.SetWizardCompleted(true);
+                // First-run completion applies auto-start per the default
+                // (true), creating the HKCU Run entry pointing at this exe.
+                _autoStart?.Apply(_config.GetAutoStartOnLogin());
                 DialogResult = true;
                 Close();
                 break;
