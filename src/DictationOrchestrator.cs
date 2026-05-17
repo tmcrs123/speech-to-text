@@ -32,7 +32,13 @@ internal sealed class DictationOrchestrator : IDisposable
     // swap its icon image per phase.
     public event Action<DictationState>? StateChanged;
 
+    // Raised on the 0↔>0 edge of the count of dictations in Phase.Recording.
+    // Distinct from StateChanged (front-of-queue) on purpose — see ADR-0005.
+    // The Recording Indicator consumes this; the tray icon does not.
+    public event Action<bool>? RecordingActiveChanged;
+
     private DictationState _lastEmittedState = DictationState.Idle;
+    private bool _lastEmittedRecordingActive;
 
     public DictationOrchestrator(
         IHotkeyListener hotkey,
@@ -101,6 +107,7 @@ internal sealed class DictationOrchestrator : IDisposable
     private void OnHotkeyTapped()
     {
         DictationState? emit = null;
+        bool? emitRecordingActive = null;
         lock (_lock)
         {
             if (_disposed) return;
@@ -120,13 +127,16 @@ internal sealed class DictationOrchestrator : IDisposable
                 StartNewRecording();
             }
             emit = CaptureEmitUnderLock();
+            emitRecordingActive = CaptureRecordingActiveEmitUnderLock();
         }
         if (emit.HasValue) StateChanged?.Invoke(emit.Value);
+        if (emitRecordingActive.HasValue) RecordingActiveChanged?.Invoke(emitRecordingActive.Value);
     }
 
     private bool OnEscPressed()
     {
         DictationState? emit = null;
+        bool? emitRecordingActive = null;
         bool consumed;
         lock (_lock)
         {
@@ -142,8 +152,10 @@ internal sealed class DictationOrchestrator : IDisposable
             AbortRecording(front);
             consumed = true;
             emit = CaptureEmitUnderLock();
+            emitRecordingActive = CaptureRecordingActiveEmitUnderLock();
         }
         if (emit.HasValue) StateChanged?.Invoke(emit.Value);
+        if (emitRecordingActive.HasValue) RecordingActiveChanged?.Invoke(emitRecordingActive.Value);
         return consumed;
     }
 
@@ -153,6 +165,22 @@ internal sealed class DictationOrchestrator : IDisposable
         if (next == _lastEmittedState) return null;
         _lastEmittedState = next;
         return next;
+    }
+
+    private bool? CaptureRecordingActiveEmitUnderLock()
+    {
+        bool active = AnyRecordingUnderLock();
+        if (active == _lastEmittedRecordingActive) return null;
+        _lastEmittedRecordingActive = active;
+        return active;
+    }
+
+    private bool AnyRecordingUnderLock()
+    {
+        for (var node = _queue.First; node != null; node = node.Next)
+            if (node.Value.Phase == Phase.Recording)
+                return true;
+        return false;
     }
 
     private void StartNewRecording()
@@ -166,6 +194,7 @@ internal sealed class DictationOrchestrator : IDisposable
     private void OnMaxDurationElapsed()
     {
         DictationState? emit = null;
+        bool? emitRecordingActive = null;
         lock (_lock)
         {
             if (_disposed) return;
@@ -173,8 +202,10 @@ internal sealed class DictationOrchestrator : IDisposable
             if (recording == null) return;
             StopRecording(recording);
             emit = CaptureEmitUnderLock();
+            emitRecordingActive = CaptureRecordingActiveEmitUnderLock();
         }
         if (emit.HasValue) StateChanged?.Invoke(emit.Value);
+        if (emitRecordingActive.HasValue) RecordingActiveChanged?.Invoke(emitRecordingActive.Value);
     }
 
     private void StopRecording(Dictation d)

@@ -58,6 +58,12 @@ internal static class Program
         tray.QuitRequested += () => ui.Post(_ => Application.Exit(), null);
         tray.SettingsRequested += () => ui.Post(_ => OpenSettings(configStore, hook, sounds, autoStart), null);
 
+        // Recording Indicator: passive, click-through, always-on-top WPF window
+        // driven by RecordingActiveChanged. Created once at startup so first-show
+        // latency doesn't reach the user (issue #25 AC).
+        var indicator = new RecordingIndicatorWindow();
+        indicator.Attach(orchestrator);
+
         hook.Install();
         InstallCtrlCHandler(ui);
 
@@ -85,6 +91,7 @@ internal static class Program
 
         Application.Run();
         orchestrator.Dispose();
+        indicator.Close();
         _backendDisposable?.Dispose();
         return 0;
     }
