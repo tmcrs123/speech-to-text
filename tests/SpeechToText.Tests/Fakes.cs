@@ -161,6 +161,7 @@ internal sealed class Harness
     public DictationOrchestrator Orchestrator { get; }
     public List<int> ErrorFlashes { get; } = new();
     public List<DictationState> StateTransitions { get; } = new();
+    public List<bool> RecordingActiveTransitions { get; } = new();
 
     public Harness(TimeSpan? maxDuration = null)
     {
@@ -168,5 +169,6 @@ internal sealed class Harness
             Hotkey, Audio, Backend, Targeter, Paster, Clock, maxDuration);
         Orchestrator.ErrorFlashRequested += () => ErrorFlashes.Add(ErrorFlashes.Count + 1);
         Orchestrator.StateChanged += s => StateTransitions.Add(s);
+        Orchestrator.RecordingActiveChanged += b => RecordingActiveTransitions.Add(b);
     }
 }
