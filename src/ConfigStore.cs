@@ -17,6 +17,8 @@ public sealed class ConfigStore
     private const bool DefaultAutoStartOnLogin = true;
     private const bool DefaultWizardCompleted = false;
     private const bool DefaultShowRecordingIndicator = true;
+    private const bool DefaultShowStatusPopup = true;
+    private const string DefaultOutputMode = "paste";
     private const int CurrentSchemaVersion = 1;
 
     private static readonly ConcurrentDictionary<string, object> FileLocks =
@@ -63,6 +65,15 @@ public sealed class ConfigStore
 
     public bool GetShowRecordingIndicator() => Load().ShowRecordingIndicator ?? DefaultShowRecordingIndicator;
     public void SetShowRecordingIndicator(bool value) => Mutate(s => s.ShowRecordingIndicator = value);
+
+    public bool GetShowStatusPopup() => Load().ShowStatusPopup ?? DefaultShowStatusPopup;
+    public void SetShowStatusPopup(bool value) => Mutate(s => s.ShowStatusPopup = value);
+
+    // Delivery mode when transcription succeeds: "paste" auto-pastes into the
+    // active window (Ctrl+V) and restores the prior clipboard; "clipboard" leaves
+    // the transcript on the clipboard for the user to paste manually.
+    public string GetOutputMode() => Load().OutputMode ?? DefaultOutputMode;
+    public void SetOutputMode(string value) => Mutate(s => s.OutputMode = value);
 
     public int GetSchemaVersion() => Load().SchemaVersion;
 
@@ -146,5 +157,7 @@ public sealed class ConfigStore
         public string? GroqApiKeyDpapi { get; set; }
         public bool? WizardCompleted { get; set; }
         public bool? ShowRecordingIndicator { get; set; }
+        public bool? ShowStatusPopup { get; set; }
+        public string? OutputMode { get; set; }
     }
 }

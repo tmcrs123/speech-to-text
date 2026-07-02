@@ -25,6 +25,17 @@ internal static class ClipboardPaster
         ScheduleRestore(saved);
     }
 
+    // Copy-only delivery: leave the transcript on the clipboard for the user to
+    // paste manually. Unlike Paste, this does not send Ctrl+V and does not
+    // save/restore the prior clipboard — the transcript is meant to stay put.
+    public static void Copy(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+
+        // UnicodeText format ensures emoji and non-ASCII glyphs survive the round trip.
+        Clipboard.SetText(text, TextDataFormat.UnicodeText);
+    }
+
     private static IDataObject? SaveClipboard()
     {
         try
