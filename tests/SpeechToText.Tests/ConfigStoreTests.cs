@@ -174,6 +174,34 @@ public sealed class ConfigStoreTests : IDisposable
     }
 
     [Fact]
+    public void GetShowStatusPopup_OnMissingFile_ReturnsTrue()
+    {
+        Assert.True(new ConfigStore(_path).GetShowStatusPopup());
+    }
+
+    [Fact]
+    public void SetShowStatusPopup_False_RoundTripsAcrossInstances()
+    {
+        new ConfigStore(_path).SetShowStatusPopup(false);
+
+        Assert.False(new ConfigStore(_path).GetShowStatusPopup());
+    }
+
+    [Fact]
+    public void GetOutputMode_OnMissingFile_ReturnsPaste()
+    {
+        Assert.Equal("paste", new ConfigStore(_path).GetOutputMode());
+    }
+
+    [Fact]
+    public void SetOutputMode_Clipboard_RoundTripsAcrossInstances()
+    {
+        new ConfigStore(_path).SetOutputMode("clipboard");
+
+        Assert.Equal("clipboard", new ConfigStore(_path).GetOutputMode());
+    }
+
+    [Fact]
     public void SetGroqApiKey_DoesNotWritePlaintextToDisk()
     {
         const string secret = "gsk_PlAiNtExTsHoUlDnEvErAppEaR_1234567890";

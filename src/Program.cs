@@ -48,7 +48,7 @@ internal static class Program
             audio: audioCapturer,
             backend: backend,
             targeter: new WindowTargeterAdapter(),
-            paster: new ClipboardPasterAdapter(ui),
+            paster: new ClipboardPasterAdapter(ui, () => configStore.GetOutputMode() == "clipboard"),
             clock: new SystemClock(),
             maxDurationProvider: () => TimeSpan.FromSeconds(Math.Max(1, configStore.GetMaxRecordingSeconds())));
 
@@ -64,6 +64,12 @@ internal static class Program
         // latency doesn't reach the user (issue #25 AC).
         var indicator = new RecordingIndicatorWindow();
         indicator.Attach(orchestrator, audioCapturer, configStore);
+
+        // Status popup: passive, click-through overlay reporting transcription
+        // status ("Transcribing…" / "Transcription finished"). Created once at
+        // startup so first-show latency doesn't reach the user.
+        var statusPopup = new StatusPopupWindow();
+        statusPopup.Attach(orchestrator, configStore);
 
         hook.Install();
         InstallCtrlCHandler(ui);
@@ -93,6 +99,7 @@ internal static class Program
         Application.Run();
         orchestrator.Dispose();
         indicator.Close();
+        statusPopup.Close();
         _backendDisposable?.Dispose();
         return 0;
     }

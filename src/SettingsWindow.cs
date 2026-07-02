@@ -52,6 +52,8 @@ internal sealed class SettingsWindow : Window
     private bool _muteSounds;
     private bool _autoStartOnLogin;
     private bool _showRecordingIndicator;
+    private bool _showStatusPopup;
+    private string _outputMode;
 
     // Controls referenced after construction.
     private RadioButton _cloudRadio = null!;
@@ -65,6 +67,9 @@ internal sealed class SettingsWindow : Window
     private CheckBox _muteCheck = null!;
     private CheckBox _autoStartCheck = null!;
     private CheckBox _recordingIndicatorCheck = null!;
+    private CheckBox _statusPopupCheck = null!;
+    private RadioButton _pasteRadio = null!;
+    private RadioButton _clipboardRadio = null!;
     private TextBox _maxSecondsBox = null!;
     private StackPanel _cloudPanel = null!;
     private StackPanel _localPanel = null!;
@@ -85,6 +90,8 @@ internal sealed class SettingsWindow : Window
         _muteSounds = !config.GetStartStopSoundsEnabled();
         _autoStartOnLogin = config.GetAutoStartOnLogin();
         _showRecordingIndicator = config.GetShowRecordingIndicator();
+        _showStatusPopup = config.GetShowStatusPopup();
+        _outputMode = config.GetOutputMode();
 
         Title = "SpeechToText — Settings";
         Width = 520;
@@ -276,6 +283,17 @@ internal sealed class SettingsWindow : Window
         _recordingIndicatorCheck.Unchecked += (_, _) => _showRecordingIndicator = false;
         panel.Children.Add(_recordingIndicatorCheck);
 
+        _statusPopupCheck = new CheckBox
+        {
+            Content = "Show transcription status popup",
+            IsChecked = _showStatusPopup,
+            Margin = new Thickness(0, 8, 0, 0),
+            ToolTip = "When off, the “Transcribing…” / “Transcription finished” overlay is hidden. Takes effect immediately.",
+        };
+        _statusPopupCheck.Checked += (_, _) => _showStatusPopup = true;
+        _statusPopupCheck.Unchecked += (_, _) => _showStatusPopup = false;
+        panel.Children.Add(_statusPopupCheck);
+
         return panel;
     }
 
@@ -337,6 +355,24 @@ internal sealed class SettingsWindow : Window
         const int MaxSeconds = 600;
 
         var panel = new StackPanel { Margin = new Thickness(12) };
+
+        panel.Children.Add(new TextBlock { Text = "When transcription finishes", Margin = new Thickness(0, 0, 0, 4) });
+        _pasteRadio = new RadioButton
+        {
+            Content = "Paste into the active window",
+            IsChecked = _outputMode != "clipboard",
+            Margin = new Thickness(0, 0, 0, 2),
+        };
+        _clipboardRadio = new RadioButton
+        {
+            Content = "Copy to clipboard only (paste it yourself)",
+            IsChecked = _outputMode == "clipboard",
+            Margin = new Thickness(0, 0, 0, 16),
+        };
+        _pasteRadio.Checked += (_, _) => _outputMode = "paste";
+        _clipboardRadio.Checked += (_, _) => _outputMode = "clipboard";
+        panel.Children.Add(_pasteRadio);
+        panel.Children.Add(_clipboardRadio);
 
         _muteCheck = new CheckBox
         {
@@ -483,6 +519,8 @@ internal sealed class SettingsWindow : Window
         _config.SetMaxRecordingSeconds(_maxSeconds);
         _config.SetAutoStartOnLogin(_autoStartOnLogin);
         _config.SetShowRecordingIndicator(_showRecordingIndicator);
+        _config.SetShowStatusPopup(_showStatusPopup);
+        _config.SetOutputMode(_outputMode);
 
         _hook.Chord = _chord;
         _sounds.Muted = _muteSounds;

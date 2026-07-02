@@ -21,8 +21,16 @@ The phase of a **Dictation** after **Recording** ends, during which captured aud
 _Avoid_: processing, inferring
 
 **Pasting**:
-The phase of a **Dictation** after transcription returns, during which the transcribed text is written to the clipboard verbatim, Ctrl+V is dispatched to the target window, and the prior clipboard contents are restored.
+The phase of a **Dictation** after transcription returns, during which the transcribed text is delivered per the configured **Output Mode**. In `paste` mode the text is written to the clipboard verbatim, Ctrl+V is dispatched to the target window, and the prior clipboard contents are restored. In `clipboard` mode the text is left on the clipboard for the user to paste manually (no Ctrl+V, no restore). The phase name is unchanged in both modes so the surfaces that key off it stay identical.
 _Avoid_: inserting, typing
+
+**Output Mode**:
+A per-machine setting selecting how a transcript is delivered when transcription succeeds: `paste` (auto-paste into the active window, the default) or `clipboard` (leave it on the clipboard for manual pasting). Owned by the paster, not the orchestrator — the **Dictation** lifecycle is identical either way.
+_Avoid_: delivery, sink
+
+**Status Popup**:
+A small, always-on-top, click-through window that reports transcription progress of the front-of-queue **Dictation**: "Transcribing…" while in **Transcribing**, then "Transcription finished" for ~2s after it completes. Anchored to the bottom-centre of the focused monitor. Purely passive — never takes focus, never receives input. Distinct from the **Recording Indicator** (which tracks any-Recording); see ADR-0007.
+_Avoid_: toast, notification, HUD
 
 **Recording Indicator**:
 A small, always-on-top, click-through window that is visible exactly when at least one **Dictation** is in the **Recording** phase. Shows a live audio meter driven by the active mic input. Anchored to the bottom-centre of the monitor that owns the focused window at **Recording**-start. Purely passive — never takes focus, never receives input.
@@ -49,6 +57,8 @@ _Avoid_: offline, on-device
 - **Esc** during **Recording** aborts the current **Dictation**; no audio is sent to the **Transcription Backend** and no text is pasted.
 - A **Dictation** that produces empty or whitespace-only text, or fails in **Transcribing**, is silently dropped (no paste, no clipboard touch); the tray icon flashes the error state briefly.
 - The **Recording Indicator** is shown whenever any **Dictation** in the queue is in the **Recording** phase, and hidden otherwise. This is independent of the tray icon, which reflects the front-of-queue phase only — so a queued **Recording** behind a still-**Transcribing** front dictation shows the **Recording Indicator** while the tray icon continues to show **Transcribing**.
+- The **Status Popup** reflects the front-of-queue **Dictation** (like the tray icon, unlike the **Recording Indicator**): "Transcribing…" during **Transcribing**, then "Transcription finished" once that dictation completes. A failed or empty **Dictation** never shows "finished" (it never enters **Pasting**); the tray icon flashes the error state instead.
+- The **Output Mode** decides only *how* the transcript leaves the app in **Pasting**; it does not change the **Dictation** phases. Both **Output Mode** and **Status Popup** visibility are read live and apply without an app restart.
 
 ## Example dialogue
 
