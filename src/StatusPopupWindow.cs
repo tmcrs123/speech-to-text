@@ -144,14 +144,45 @@ internal sealed class StatusPopupWindow : Window
     private void ShowMessage(string text)
     {
         _label.Text = text;
-        PositionAtFocusedMonitor();
-        if (!IsVisible) Show();
+        if (IsVisible)
+        {
+            // Already on screen (e.g. Transcribing → finished): update in place.
+            PositionAtFocusedMonitor();
+            return;
+        }
+
+        // Re-show path. This is a layered/transparent window that caches its last
+        // composited frame, so showing it on-screen in the same pass that set the
+        // text flashes the previous message for a frame. Render the new text while
+        // parked off-screen (as the constructor does for the first show), then move
+        // on-screen only after that frame has been composited.
+        Left = -32000;
+        Top = -32000;
+        Show();
+        RevealAfterRender();
+    }
+
+    // Reposition on-screen on the next render frame, once the freshly-set label text
+    // has been composited, so no stale frame is ever presented on-screen.
+    private void RevealAfterRender()
+    {
+        EventHandler? handler = null;
+        handler = (_, _) =>
+        {
+            CompositionTarget.Rendering -= handler;
+            if (IsVisible) PositionAtFocusedMonitor();
+        };
+        CompositionTarget.Rendering += handler;
     }
 
     private void HideNow()
     {
         CancelDismissTimer();
         if (IsVisible) Hide();
+        // Clear the cached content and shadow state so a subsequent re-show can never
+        // flash the previous message and the Idle "finished" guard can't go stale.
+        _label.Text = "";
+        _prevState = DictationState.Idle;
     }
 
     private void PositionAtFocusedMonitor()
